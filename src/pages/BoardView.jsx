@@ -48,10 +48,17 @@ const SortableCard = ({ card, onCardClick, onDelete }) => {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    touchAction: 'none', // Previene el scroll nativo en móviles durante el drag
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners} 
+      className="cursor-grab active:cursor-grabbing touch-none"
+    >
       <Card card={card} onClick={onCardClick} onDelete={onDelete} />
     </div>
   );
@@ -145,7 +152,11 @@ const BoardView = () => {
   const [deleteColumnConfirm, setDeleteColumnConfirm] = useState({ isOpen: false, columnId: null });
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Requiere 8px de movimiento antes de activar el drag
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
