@@ -28,4 +28,5 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 ### Corregido
 - **Encoding CSV**: Agregado BOM UTF-8 para correcta visualización de caracteres especiales y acentos en Excel y otros programas
 - **Drag and drop en móviles**: Mejorado el manejo de eventos táctiles para evitar conflictos con el scroll
+- **Rutas directas en Vercel**: Agregada configuración `vercel.json` para que todas las rutas redirijan a `index.html`, permitiendo acceso directo a URLs de tableros
 
