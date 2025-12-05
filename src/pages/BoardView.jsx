@@ -26,7 +26,7 @@ import AddColumnModal from "../components/AddColumnModal";
 import AlertModal from "../components/AlertModal";
 import Button from "../components/Button";
 import { addColumn } from "../services/boardService";
-import { FaPlus, FaArrowLeft, FaTrash, FaDownload, FaUpload } from "react-icons/fa";
+import { FaPlus, FaArrowLeft, FaTrash, FaDownload, FaUpload, FaShare } from "react-icons/fa";
 import Modal from "../components/Modal";
 
 const SortableCard = ({ card, onCardClick, onDelete, columnColor }) => {
@@ -433,6 +433,27 @@ const BoardView = () => {
     }
   };
 
+  const handleShareBoard = async () => {
+    try {
+      const url = window.location.href;
+      await navigator.clipboard.writeText(url);
+      setAlertModal({
+        isOpen: true,
+        title: "Enlace copiado",
+        message: "El enlace del tablero ha sido copiado al portapapeles.",
+        type: "info",
+      });
+    } catch (error) {
+      console.error("Error al copiar enlace:", error);
+      setAlertModal({
+        isOpen: true,
+        title: "Error",
+        message: "No se pudo copiar el enlace. Por favor, intenta de nuevo.",
+        type: "error",
+      });
+    }
+  };
+
   const handleExportToCSV = () => {
     if (!board || !sortedColumns) return;
 
@@ -702,6 +723,15 @@ const BoardView = () => {
             </Button>
           </div>
           <div className="flex items-center gap-4">
+            <Button
+              onClick={handleShareBoard}
+              variant="secondary"
+              className="flex items-center gap-4"
+              title="Compartir tablero"
+            >
+              <FaShare className="w-4 h-4" />
+              Compartir tablero
+            </Button>
             <Button
               onClick={() => setIsImportModalOpen(true)}
               variant="secondary"

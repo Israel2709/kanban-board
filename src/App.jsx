@@ -15,11 +15,12 @@ import {
   subscribeToBoards,
   deleteBoard,
 } from "./services/boardService";
+import { subscribeToAuth } from "./services/authService";
 import { FaPlus, FaTrash } from "react-icons/fa";
 import AlertModal from "./components/AlertModal";
 import "./App.css";
 
-const Home = () => {
+const Home = ({ user }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [boards, setBoards] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -178,15 +179,35 @@ const Home = () => {
 };
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAuth((userData) => {
+      setUser(userData);
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  if (authLoading) {
+    return (
+      <div className="h-screen w-full bg-gray-50 dark:bg-gray-900 transition-colors flex items-center justify-center">
+        <p className="text-gray-600 dark:text-gray-400">Cargando...</p>
+      </div>
+    );
+  }
+
   return (
     <AppProvider>
       <Router>
         <div className="h-screen w-full bg-gray-50 dark:bg-gray-900 transition-colors flex flex-col overflow-hidden">
-          <Navbar />
+          <Navbar user={user} onAuthChange={setUser} />
           <div className="flex-1 overflow-auto p-4">
             <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/board/:boardId" element={<BoardView />} />
+              <Route path="/" element={<Home user={user} />} />
+              <Route path="/board/:boardId" element={<BoardView user={user} />} />
             </Routes>
           </div>
         </div>
