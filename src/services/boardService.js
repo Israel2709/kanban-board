@@ -32,6 +32,7 @@ export const createBoard = async (boardData) => {
           name: col.name.trim(),
           color: col.color || "blue",
           order: index,
+          width: col.width || 250, // Ancho por defecto en px
         })),
       properties: (boardData.properties || [])
         .filter((prop) => prop.name && prop.name.trim())
@@ -129,6 +130,7 @@ export const addColumn = async (boardId, columnData) => {
       name: columnData.name.trim(),
       color: columnData.color || "blue",
       order: existingColumns.length,
+      width: 250, // Ancho por defecto en px
     };
 
     const updatedColumns = [...existingColumns, newColumn];
@@ -140,6 +142,32 @@ export const addColumn = async (boardId, columnData) => {
     return newColumn;
   } catch (error) {
     console.error("Error en addColumn:", error);
+    throw error;
+  }
+};
+
+export const updateColumnWidth = async (boardId, columnId, width) => {
+  try {
+    const board = await getBoard(boardId);
+    if (!board) {
+      throw new Error("Tablero no encontrado");
+    }
+
+    const existingColumns = board.columns || [];
+    const updatedColumns = existingColumns.map((col) => {
+      if (col.id === columnId) {
+        return { ...col, width: Math.max(150, Math.min(500, width)) }; // Limitar entre 150px y 500px
+      }
+      return col;
+    });
+
+    await updateBoard(boardId, {
+      columns: updatedColumns,
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error en updateColumnWidth:", error);
     throw error;
   }
 };

@@ -3,7 +3,7 @@ import { FaTrash } from "react-icons/fa";
 import Button from "./Button";
 import AlertModal from "./AlertModal";
 
-const Card = ({ card, onClick, onDelete }) => {
+const Card = ({ card, onClick, onDelete, columnColor }) => {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   const handleDelete = (e) => {
@@ -27,10 +27,33 @@ const Card = ({ card, onClick, onDelete }) => {
     onClick();
   };
 
+  const getBackgroundColorClass = (color) => {
+    const colorMap = {
+      blue: "bg-blue-50 dark:bg-blue-950/30",
+      green: "bg-green-50 dark:bg-green-950/30",
+      red: "bg-red-50 dark:bg-red-950/30",
+      yellow: "bg-yellow-50 dark:bg-yellow-950/30",
+      purple: "bg-purple-50 dark:bg-purple-950/30",
+      pink: "bg-pink-50 dark:bg-pink-950/30",
+      indigo: "bg-indigo-50 dark:bg-indigo-950/30",
+      gray: "bg-gray-50 dark:bg-gray-950/30",
+      orange: "bg-orange-50 dark:bg-orange-950/30",
+      teal: "bg-teal-50 dark:bg-teal-950/30",
+      cyan: "bg-cyan-50 dark:bg-cyan-950/30",
+      lime: "bg-lime-50 dark:bg-lime-950/30",
+      amber: "bg-amber-50 dark:bg-amber-950/30",
+      violet: "bg-violet-50 dark:bg-violet-950/30",
+      fuchsia: "bg-fuchsia-50 dark:bg-fuchsia-950/30",
+    };
+    return colorMap[color] || "bg-gray-50 dark:bg-gray-950/30";
+  };
+
+  const bgColorClass = columnColor ? getBackgroundColorClass(columnColor) : "bg-white dark:bg-gray-800";
+
   return (
     <div
       onClick={handleCardClick}
-      className="bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4 cursor-pointer hover:shadow-md transition-shadow group relative"
+      className={`${bgColorClass} rounded-md shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4 cursor-pointer hover:shadow-md transition-shadow group relative`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">

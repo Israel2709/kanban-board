@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   DndContext,
@@ -18,7 +18,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { subscribeToBoard, deleteColumn } from "../services/boardService";
+import { subscribeToBoard, deleteColumn, updateColumnWidth } from "../services/boardService";
 import { subscribeToCards, createCard, updateCard, deleteCard, moveCard, reorderCards } from "../services/cardService";
 import Card from "../components/Card";
 import CardModal from "../components/CardModal";
@@ -26,9 +26,10 @@ import AddColumnModal from "../components/AddColumnModal";
 import AlertModal from "../components/AlertModal";
 import Button from "../components/Button";
 import { addColumn } from "../services/boardService";
-import { FaPlus, FaArrowLeft, FaTrash } from "react-icons/fa";
+import { FaPlus, FaArrowLeft, FaTrash, FaDownload, FaUpload } from "react-icons/fa";
+import Modal from "../components/Modal";
 
-const SortableCard = ({ card, onCardClick, onDelete }) => {
+const SortableCard = ({ card, onCardClick, onDelete, columnColor }) => {
   const {
     attributes,
     listeners,
@@ -59,15 +60,22 @@ const SortableCard = ({ card, onCardClick, onDelete }) => {
       {...listeners} 
       className="cursor-grab active:cursor-grabbing touch-none"
     >
-      <Card card={card} onClick={onCardClick} onDelete={onDelete} />
+      <Card card={card} onClick={onCardClick} onDelete={onDelete} columnColor={columnColor} />
     </div>
   );
 };
 
-const Column = ({ column, cards, onCardClick, onAddCard, onDeleteCard, onDeleteColumn }) => {
+const Column = ({ column, cards, onCardClick, onAddCard, onDeleteCard, onDeleteColumn, onResize, boardId }) => {
   const { setNodeRef } = useDroppable({
     id: `column-${column.id}`,
   });
+  const [isResizing, setIsResizing] = useState(false);
+  const [currentWidth, setCurrentWidth] = useState(column.width || 250);
+  const columnRef = useRef(null);
+
+  useEffect(() => {
+    setCurrentWidth(column.width || 250);
+  }, [column.width]);
 
   const getColorClass = (color) => {
     const colorMap = {
@@ -90,29 +98,97 @@ const Column = ({ column, cards, onCardClick, onAddCard, onDeleteCard, onDeleteC
     return colorMap[color] || "bg-gray-500";
   };
 
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    let finalWidth = currentWidth;
+
+    const handleMouseMove = (e) => {
+      if (columnRef.current) {
+        const rect = columnRef.current.getBoundingClientRect();
+        const newWidth = e.clientX - rect.left;
+        const clampedWidth = Math.max(150, Math.min(500, newWidth));
+        finalWidth = clampedWidth;
+        setCurrentWidth(clampedWidth);
+      }
+    };
+
+    const handleMouseUp = async () => {
+      setIsResizing(false);
+      if (onResize && boardId) {
+        await onResize(column.id, finalWidth);
+      }
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isResizing, column.id, onResize, boardId]);
+
   return (
     <div
-      ref={setNodeRef}
-      className="w-1/4 min-w-[300px] flex-shrink-0 bg-gray-100 dark:bg-gray-800 rounded-lg p-4 flex flex-col h-full"
+      ref={(node) => {
+        setNodeRef(node);
+        columnRef.current = node;
+      }}
+      style={{ width: `${currentWidth}px` }}
+      className="flex-shrink-0 bg-gray-100 dark:bg-gray-800 rounded-lg p-4 flex flex-col h-full relative"
     >
       <div className="flex items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-4">
           <div className={`w-4 h-4 rounded-full ${getColorClass(column.color)}`} />
-          <h3 className="font-semibold text-gray-800 dark:text-white">
-            {column.name}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-gray-800 dark:text-white">
+              {column.name}
+            </h3>
+            <span className="px-2 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+              {cards.length}
+            </span>
+          </div>
         </div>
-        {onDeleteColumn && (
+        <div className="flex items-center gap-2">
           <Button
-            onClick={() => onDeleteColumn(column.id)}
+            onClick={() => onAddCard(column.id)}
             variant="icon"
-            className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 opacity-70 hover:opacity-100 transition-opacity"
-            aria-label="Eliminar columna"
+            className="opacity-70 hover:opacity-100 transition-opacity"
+            title="Agregar item"
+            aria-label="Agregar item"
           >
-            <FaTrash className="w-4 h-4" />
+            <FaPlus className="w-4 h-4" />
           </Button>
-        )}
+          {onDeleteColumn && (
+            <Button
+              onClick={() => onDeleteColumn(column.id)}
+              variant="icon"
+              className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 opacity-70 hover:opacity-100 transition-opacity"
+              aria-label="Eliminar columna"
+            >
+              <FaTrash className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
+      {/* Resize handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="absolute top-0 right-0 w-2 h-full cursor-col-resize hover:bg-blue-500 opacity-0 hover:opacity-100 transition-opacity z-10"
+        style={{ touchAction: 'none' }}
+        aria-label="Redimensionar columna"
+      />
       <SortableContext items={cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
         <div className="flex-1 overflow-y-auto min-h-0">
           {cards.map((card) => (
@@ -121,18 +197,11 @@ const Column = ({ column, cards, onCardClick, onAddCard, onDeleteCard, onDeleteC
               card={card}
               onCardClick={() => onCardClick(card, column.id)}
               onDelete={() => onDeleteCard(card.id, column.id)}
+              columnColor={column.color}
             />
           ))}
         </div>
       </SortableContext>
-      <Button
-        onClick={() => onAddCard(column.id)}
-        variant="text"
-        className="w-full mt-4 flex items-center justify-center gap-4 flex-shrink-0"
-      >
-        <FaPlus className="w-4 h-4" />
-        Agregar card
-      </Button>
     </div>
   );
 };
@@ -150,6 +219,7 @@ const BoardView = () => {
   const [activeId, setActiveId] = useState(null);
   const [alertModal, setAlertModal] = useState({ isOpen: false, title: "", message: "", type: "info" });
   const [deleteColumnConfirm, setDeleteColumnConfirm] = useState({ isOpen: false, columnId: null });
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -349,6 +419,222 @@ const BoardView = () => {
     setDeleteColumnConfirm({ isOpen: true, columnId });
   };
 
+  const handleResizeColumn = async (columnId, width) => {
+    try {
+      await updateColumnWidth(boardId, columnId, width);
+    } catch (error) {
+      console.error("Error al actualizar ancho de columna:", error);
+      setAlertModal({
+        isOpen: true,
+        title: "Error",
+        message: "Error al actualizar el ancho de la columna. Por favor, intenta de nuevo.",
+        type: "error",
+      });
+    }
+  };
+
+  const handleExportToCSV = () => {
+    if (!board || !sortedColumns) return;
+
+    // Crear encabezados del CSV
+    const headers = ["Título", "Contenido", "Columna"];
+    const rows = [headers.join(",")];
+
+    // Agregar cada card como una fila
+    sortedColumns.forEach((column) => {
+      const columnCards = cardsByColumn[column.id] || [];
+      columnCards.forEach((card) => {
+        const title = `"${(card.title || "Sin título").replace(/"/g, '""')}"`;
+        const content = `"${(card.content || "").replace(/"/g, '""')}"`;
+        const columnName = `"${column.name.replace(/"/g, '""')}"`;
+        rows.push([title, content, columnName].join(","));
+      });
+    });
+
+    // Crear el contenido CSV con BOM para UTF-8 (permite caracteres especiales y acentos)
+    const BOM = "\uFEFF";
+    const csvContent = BOM + rows.join("\n");
+
+    // Crear el blob con encoding UTF-8
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${board.title.replace(/[^a-z0-9]/gi, "_")}_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadTemplate = () => {
+    if (!board || !sortedColumns) return;
+
+    // Crear los encabezados para la plantilla
+    const headers = ["Título", "Contenido", "Columna"];
+    const rows = [headers.join(",")];
+
+    // Agregar filas de ejemplo con las columnas disponibles
+    sortedColumns.forEach((column, index) => {
+      const exampleTitle = `Ejemplo ${index + 1}`;
+      const exampleContent = "Descripción del item";
+      const columnName = `"${column.name.replace(/"/g, '""')}"`;
+      rows.push([`"${exampleTitle}"`, `"${exampleContent}"`, columnName].join(","));
+    });
+
+    // Crear el contenido CSV con BOM para UTF-8
+    const BOM = "\uFEFF";
+    const csvContent = BOM + rows.join("\n");
+
+    // Crear el blob con encoding UTF-8
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Plantilla_${board.title.replace(/[^a-z0-9]/gi, "_")}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const parseCSV = (csvText) => {
+    const lines = csvText.split("\n").filter(line => line.trim());
+    if (lines.length < 2) {
+      throw new Error("El archivo CSV debe tener al menos una fila de encabezados y una fila de datos");
+    }
+
+    // Parsear encabezados (remover BOM si existe)
+    const headerLine = lines[0].replace(/^\uFEFF/, "");
+    const headers = headerLine.split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+
+    // Validar encabezados
+    const expectedHeaders = ["Título", "Contenido", "Columna"];
+    const hasAllHeaders = expectedHeaders.every(h => headers.includes(h));
+    if (!hasAllHeaders) {
+      throw new Error(`El archivo CSV debe contener las columnas: ${expectedHeaders.join(", ")}`);
+    }
+
+    // Parsear datos
+    const data = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+
+      // Parsear CSV manualmente (manejar comillas)
+      const values = [];
+      let currentValue = "";
+      let insideQuotes = false;
+
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        if (char === '"') {
+          if (insideQuotes && line[j + 1] === '"') {
+            currentValue += '"';
+            j++; // Saltar la siguiente comilla
+          } else {
+            insideQuotes = !insideQuotes;
+          }
+        } else if (char === ',' && !insideQuotes) {
+          values.push(currentValue.trim());
+          currentValue = "";
+        } else {
+          currentValue += char;
+        }
+      }
+      values.push(currentValue.trim());
+
+      if (values.length >= 3) {
+        data.push({
+          title: values[0].replace(/^"|"$/g, ""),
+          content: values[1].replace(/^"|"$/g, ""),
+          column: values[2].replace(/^"|"$/g, ""),
+        });
+      }
+    }
+
+    return data;
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = parseCSV(text);
+
+      if (data.length === 0) {
+        throw new Error("El archivo CSV no contiene datos válidos");
+      }
+
+      // Crear un mapa de nombres de columnas a IDs
+      const columnMap = {};
+      sortedColumns.forEach((column) => {
+        columnMap[column.name] = column.id;
+      });
+
+      // Crear las cards
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      for (const row of data) {
+        const columnId = columnMap[row.column];
+        if (!columnId) {
+          errorCount++;
+          errors.push(`Columna "${row.column}" no encontrada`);
+          continue;
+        }
+
+        try {
+          const columnCards = cardsByColumn[columnId] || [];
+          await createCard(boardId, columnId, {
+            title: row.title || "Sin título",
+            content: row.content || "",
+            order: columnCards.length,
+          });
+          successCount++;
+        } catch (error) {
+          errorCount++;
+          errors.push(`Error al crear card "${row.title}": ${error.message}`);
+        }
+      }
+
+      setIsImportModalOpen(false);
+      
+      if (errorCount > 0) {
+        setAlertModal({
+          isOpen: true,
+          title: "Importación completada con errores",
+          message: `Se importaron ${successCount} items correctamente. ${errorCount} items tuvieron errores.`,
+          type: "error",
+        });
+      } else {
+        setAlertModal({
+          isOpen: true,
+          title: "Importación exitosa",
+          message: `Se importaron ${successCount} items correctamente.`,
+          type: "info",
+        });
+      }
+
+      // Limpiar el input
+      event.target.value = "";
+    } catch (error) {
+      console.error("Error al importar CSV:", error);
+      setAlertModal({
+        isOpen: true,
+        title: "Error al importar CSV",
+        message: error.message || "Error desconocido al importar el archivo CSV.",
+        type: "error",
+      });
+      event.target.value = "";
+    }
+  };
+
   const confirmDeleteColumn = async () => {
     if (!deleteColumnConfirm.columnId) return;
 
@@ -415,6 +701,26 @@ const BoardView = () => {
               Agregar columna
             </Button>
           </div>
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => setIsImportModalOpen(true)}
+              variant="secondary"
+              className="flex items-center gap-4"
+              title="Importar desde CSV"
+            >
+              <FaUpload className="w-4 h-4" />
+              Importar CSV
+            </Button>
+            <Button
+              onClick={handleExportToCSV}
+              variant="secondary"
+              className="flex items-center gap-4"
+              title="Exportar a CSV"
+            >
+              <FaDownload className="w-4 h-4" />
+              Exportar CSV
+            </Button>
+          </div>
         </div>
 
         {/* Board */}
@@ -435,6 +741,8 @@ const BoardView = () => {
                   onAddCard={handleAddCard}
                   onDeleteCard={handleDeleteCardDirect}
                   onDeleteColumn={handleDeleteColumn}
+                  onResize={handleResizeColumn}
+                  boardId={boardId}
                 />
               ))}
             </div>
@@ -488,6 +796,69 @@ const BoardView = () => {
           type="confirm"
           onConfirm={confirmDeleteColumn}
         />
+
+        {/* Import CSV Modal */}
+        <Modal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          title="Importar desde CSV"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Selecciona una opción para importar datos desde un archivo CSV:
+            </p>
+            
+            <div className="space-y-4">
+              <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <Button
+                  onClick={handleDownloadTemplate}
+                  variant="primary"
+                  className="w-full flex items-center justify-center gap-4 mb-2"
+                >
+                  <FaDownload className="w-4 h-4" />
+                  Descargar plantilla
+                </Button>
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                  Descarga la plantilla necesaria para poder importar datos posteriormente
+                </p>
+              </div>
+
+              <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <label className="block">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="csv-file-input"
+                  />
+                  <Button
+                    onClick={() => document.getElementById("csv-file-input")?.click()}
+                    variant="primary"
+                    className="w-full flex items-center justify-center gap-4 mb-2"
+                  >
+                    <FaUpload className="w-4 h-4" />
+                    Cargar CSV
+                  </Button>
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                  Usa esta opción si ya cuentas con la plantilla necesaria
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Columnas disponibles:
+              </p>
+              <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                {sortedColumns.map((column) => (
+                  <li key={column.id}>• {column.name}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </Modal>
       </div>
     </div>
   );
