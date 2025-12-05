@@ -5,6 +5,20 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 ## [Unreleased]
 
 ### Agregado
+- **Autenticación con Email/Password**:
+  - Sistema de registro e inicio de sesión con email y contraseña usando Firebase Authentication
+  - Formulario de registro con campos para nombre de usuario, foto de perfil, email y contraseña
+  - Opción "Recuérdame" para persistencia de sesión (localStorage vs sessionStorage)
+  - Validación de formularios con react-hook-form
+  - Manejo de errores con mensajes traducidos y específicos
+- **Gestión de Perfil de Usuario**:
+  - Subida de foto de perfil a Firebase Storage durante el registro
+  - Actualización automática del perfil con nombre de usuario y foto
+  - Vista previa de foto antes de subir
+  - Validación de imagen (tipo y tamaño máximo 5MB)
+- **Botón "Compartir Tablero"**:
+  - Botón en el encabezado del tablero para copiar la URL al portapapeles
+  - Modal de confirmación al copiar el enlace
 - **Creación de tableros en dos pasos**: 
   - Paso 1: Formulario para definir columnas con nombre, color y ordenamiento
   - Paso 2: Formulario para definir propiedades de las cards (nombre y tipo de dato)
@@ -20,6 +34,10 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 - **Mejoras en drag and drop móvil**: Configuración mejorada de sensores para mejor funcionamiento en dispositivos móviles
 
 ### Modificado
+- **Navbar**: 
+  - Muestra el nombre de usuario en lugar del email
+  - Muestra la foto de perfil del usuario autenticado
+  - Botones de inicio de sesión y cierre de sesión según el estado de autenticación
 - **Modal de creación de tablero**: Ahora es un flujo de dos pasos en lugar de un solo formulario
 - **Estructura de datos de tableros**: Se agregó el campo `properties` para almacenar las propiedades de las cards
 - **Estructura de datos de columnas**: Se agregó el campo `width` para almacenar el ancho personalizado de cada columna
